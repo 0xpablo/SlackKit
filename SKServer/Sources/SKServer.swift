@@ -40,7 +40,7 @@ public final class SKServer {
         if let server = server {
             self.server = server
         } else {
-            self.server = SwifterServer(responder: responder)
+            self.server = HummingbirdServer(responder: responder)
         }
     }
 

@@ -1,11 +1,11 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.9
 
 import PackageDescription
 
 let package = Package(
     name: "SlackKit",
     platforms: [
-        .macOS(.v10_15), .iOS(.v10), .tvOS(.v10)
+        .macOS(.v13)
     ],
     products: [
         .library(name: "SlackKit", targets: ["SlackKit"]),
@@ -16,9 +16,9 @@ let package = Package(
         .library(name: "SKWebAPI", targets: ["SKWebAPI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/httpswift/swifter", from: .init(1, 5, 0)),
-        .package(url: "https://github.com/vapor/websocket-kit", from: .init(2, 5, 0)),
-        .package(url: "https://github.com/daltoniam/Starscream", from: .init(4, 0, 4)),
+        .package(url: "https://github.com/hummingbird-project/hummingbird", from: "1.9.1"),
+        .package(url: "https://github.com/vapor/websocket-kit", from: "2.14.0"),
+        .package(url: "https://github.com/daltoniam/Starscream", from: "4.0.4"),
     ],
     targets: [
         .target(name: "SlackKit",
@@ -39,7 +39,7 @@ let package = Package(
                 path: "SKRTMAPI/Sources"),
         .target(name: "SKServer",
                 dependencies: ["SKCore", "SKWebAPI",
-                    .product(name: "Swifter", package: "swifter")],
+                    .product(name: "Hummingbird", package: "hummingbird")],
                 path: "SKServer/Sources"),
         .target(name: "SKWebAPI",
                 dependencies: ["SKCore"],
@@ -53,6 +53,5 @@ let package = Package(
                 resources: [
                     .copy("Resources")
                 ])
-    ],
-    swiftLanguageVersions: [.v5]
+    ]
 )

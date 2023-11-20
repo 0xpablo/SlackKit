@@ -20,7 +20,7 @@ public typealias Header = (name: String, value: String)
 ///
 /// Little known fact: HTTP headers need not be unique!
 public struct HTTPHeaders {
-    private var headers: [Header]
+    private(set) var headers: [Header]
 
     public init() {
         self.headers = [Header]()
