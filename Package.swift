@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "SlackKit",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
         .library(name: "SlackKit", targets: ["SlackKit"]),
@@ -16,7 +16,7 @@ let package = Package(
         .library(name: "SKWebAPI", targets: ["SKWebAPI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/hummingbird-project/hummingbird", from: "1.9.1"),
+        .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0-beta.2"),
         .package(url: "https://github.com/vapor/websocket-kit", from: "2.14.0"),
         .package(url: "https://github.com/daltoniam/Starscream", from: "4.0.4"),
     ],

@@ -3,58 +3,62 @@ import Hummingbird
 import HummingbirdCore
 
 class HummingbirdServer: SlackKitServer {
-    let server: HBApplication
+    let server: Application<RouterResponder<BasicRequestContext>, HTTP1Channel>
     let port: in_port_t
     let forceIPV4: Bool
+    private var serverTask: Task<Void, any Error>?
 
     init(port: in_port_t = 8080, forceIPV4: Bool = false, responder: SlackKitResponder) {
         self.port = port
         self.forceIPV4 = forceIPV4
-        server = HBApplication(configuration: .init(address: .hostname("127.0.0.1", port: Int(port))))
+
+        let router = Router()
 
         for route in responder.routes {
-            server.router.get(route.path) { r -> HBResponse in
+            router.get(route.path) { r, context -> HummingbirdCore.Response in
                 let skRequest = try await Request(r)
                 let skResponse = route.middleware.respond(to: (skRequest, Response())).1
                 return .init(skResponse)
             }
         }
+
+        server = Application(
+            router: router,
+            configuration: .init(address: .hostname("127.0.0.1", port: Int(port)))
+        )
     }
 
     public func start() {
-        do {
-            try server.start()
-        } catch let error {
-            print("Server failed to start with error: \(error)")
+        serverTask = Task {
+            try await server.run()
         }
     }
 
     deinit {
-        server.stop()
+        serverTask?.cancel()
     }
 }
 
 private extension Request {
-    init(_ r: HBRequest) async throws{
-        let body = try await r.body.consumeBody(maxSize: 5 * 1024 * 1024)
-        let data = body.map { Data(buffer: $0) } ?? Data()
+    init(_ r: HummingbirdCore.Request) async throws{
+        let body = try await r.body.collect(upTo: 5 * 1024 * 1024)
+        let data = Data(buffer: body)
 
         let queryPairs = r.uri.queryParameters.map { (String($0.key), String($0.value)) }
 
         self.init(method: HTTPMethod.custom(named: r.method.rawValue),
-                  path: r.endpointPath!,
+                  path: r.uri.path,
                   queryPairs: queryPairs,
                   body: data,
-                  headers: .init(headers: r.headers.map { $0 })
+                  headers: .init(headers: r.headers.map { header in (header.name.rawName, header.value) })
                   )
     }
 }
 
-private extension HBResponse {
+private extension HummingbirdCore.Response {
     init(_ r: ResponseType) {
-        self.init(status: .init(statusCode: r.code),
-                  headers: .init(r.headers.headers),
-                  body: .byteBuffer(.init(data: r.body)))
-
+        self.init(status: .init(code: r.code),
+                  headers: .init(r.headers.map { .init(name: .init($0.name)!, value: $0.value) }),
+                  body: .init(byteBuffer: .init(data: r.body)))
     }
 }

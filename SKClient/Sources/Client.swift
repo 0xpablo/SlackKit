@@ -183,9 +183,6 @@ open class Client {
         case .unknown:
             // Unsupported event
             break
-        @unknown default:
-            // Unsupported event
-            break
         }
     }
 
