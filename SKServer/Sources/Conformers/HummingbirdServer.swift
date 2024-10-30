@@ -3,7 +3,7 @@ import Hummingbird
 import HummingbirdCore
 
 class HummingbirdServer: SlackKitServer {
-    let server: Application<RouterResponder<BasicRequestContext>, HTTP1Channel>
+    let server: Application<RouterResponder<BasicRequestContext>>
     let port: in_port_t
     let forceIPV4: Bool
     private var serverTask: Task<Void, any Error>?
@@ -15,7 +15,7 @@ class HummingbirdServer: SlackKitServer {
         let router = Router()
 
         for route in responder.routes {
-            router.get(route.path) { r, context -> HummingbirdCore.Response in
+            router.get(RouterPath(route.path)) { r, context -> HummingbirdCore.Response in
                 let skRequest = try await Request(r)
                 let skResponse = route.middleware.respond(to: (skRequest, Response())).1
                 return .init(skResponse)

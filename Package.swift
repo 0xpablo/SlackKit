@@ -16,8 +16,8 @@ let package = Package(
         .library(name: "SKWebAPI", targets: ["SKWebAPI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0-beta.2"),
-        .package(url: "https://github.com/vapor/websocket-kit", from: "2.14.0"),
+        .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.3.0"),
+        .package(url: "https://github.com/vapor/websocket-kit", from: "2.15.0"),
         .package(url: "https://github.com/daltoniam/Starscream", from: "4.0.4"),
     ],
     targets: [
