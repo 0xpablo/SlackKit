@@ -30,7 +30,7 @@ public protocol SlackKitServer {
 }
 
 public protocol Middleware {
-    func respond(to request: (RequestType, ResponseType)) -> (RequestType, ResponseType)
+    func respond(to request: (RequestType, ResponseType)) async -> (RequestType, ResponseType)
 }
 
 public final class SKServer {

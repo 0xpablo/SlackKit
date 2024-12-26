@@ -15,9 +15,9 @@ class HummingbirdServer: SlackKitServer {
         let router = Router()
 
         for route in responder.routes {
-            router.get(RouterPath(route.path)) { r, context -> HummingbirdCore.Response in
+            router.post(RouterPath(route.path)) { r, context -> HummingbirdCore.Response in
                 let skRequest = try await Request(r)
-                let skResponse = route.middleware.respond(to: (skRequest, Response())).1
+                let skResponse = await route.middleware.respond(to: (skRequest, Response())).1
                 return .init(skResponse)
             }
         }

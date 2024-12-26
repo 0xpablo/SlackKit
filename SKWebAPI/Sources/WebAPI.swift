@@ -335,6 +335,40 @@ extension WebAPI {
             failure?(error)
         }
     }
+
+    public func sendMessage(
+        toWebHook webhookURL: String,
+        text: String,
+        blocks: [Block]? = nil,
+        attachments: [Attachment?]? = nil,
+        success: (() -> Void)?,
+        failure: ((Error) -> Void)?
+    ) {
+        var payload: [String: Any] = ["text": text]
+        if let blocks = blocks {
+            payload["blocks"] = encodeBlocks(blocks)
+        }
+        if let attachments = attachments {
+            payload["attachments"] = encodeAttachments(attachments)
+        }
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
+            failure?(SlackError.invalidFormData)
+            return
+        }
+
+        networkInterface.customRequest(
+            webhookURL,
+            token: "", // No token required for webhooks
+            data: jsonData,
+            success: { _ in
+                success?()
+            },
+            errorClosure: { error in
+                failure?(error)
+            }
+        )
+    }
 }
 
 // MARK: - Do Not Disturb

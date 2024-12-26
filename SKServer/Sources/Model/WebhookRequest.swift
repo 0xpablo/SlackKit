@@ -1,7 +1,7 @@
 //
 // WebhookRequest.swift
 //
-// Copyright © 2017 Peter Zignego. All rights reserved.
+// Copyright © 2025 Pablo Carcelén. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-public struct WebhookRequest {
+public struct WebhookRequest: Codable {
     public let token: String?
     public let teamID: String?
     public let teamDomain: String?
@@ -35,18 +35,19 @@ public struct WebhookRequest {
     public let triggerWord: String?
     public let responseURL: String?
 
-    internal init(request: [String: Any]?) {
-        token = request?["token"] as? String
-        teamID = request?["team_id"] as? String
-        teamDomain = request?["team_domain"] as? String
-        channelID = request?["channel_id"] as? String
-        channelName = request?["channel_name"] as? String
-        ts = request?["timestamp"] as? String
-        userID = request?["user_id"] as? String
-        userName = request?["user_name"] as? String
-        command = request?["command"] as? String
-        text = request?["text"] as? String
-        triggerWord = request?["trigger_word"] as? String
-        responseURL = request?["response_url"] as? String
+    // Mapping keys for custom decoding if necessary
+    private enum CodingKeys: String, CodingKey {
+        case token
+        case teamID = "team_id"
+        case teamDomain = "team_domain"
+        case channelID = "channel_id"
+        case channelName = "channel_name"
+        case ts = "timestamp"
+        case userID = "user_id"
+        case userName = "user_name"
+        case command
+        case text
+        case triggerWord = "trigger_word"
+        case responseURL = "response_url"
     }
 }
