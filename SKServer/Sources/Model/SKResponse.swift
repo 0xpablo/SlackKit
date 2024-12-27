@@ -27,9 +27,9 @@ import SKCore
 #endif
 
 public struct SKResponse {
-    let text: String
-    let responseType: MessageResponseType
-    let attachments: [Attachment]?
+    public let text: String
+    public let responseType: MessageResponseType
+    public let attachments: [Attachment]?
 
     public init(text: String, responseType: MessageResponseType = .inChannel, attachments: [Attachment]? = nil) {
         self.responseType = responseType
