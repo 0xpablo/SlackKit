@@ -341,15 +341,22 @@ extension WebAPI {
         text: String,
         blocks: [Block]? = nil,
         attachments: [Attachment?]? = nil,
+        responseType: MessageResponseType? = nil,
         success: (() -> Void)?,
         failure: ((Error) -> Void)?
     ) {
         var payload: [String: Any] = ["text": text]
+
         if let blocks = blocks {
             payload["blocks"] = encodeBlocks(blocks)
         }
+
         if let attachments = attachments {
             payload["attachments"] = encodeAttachments(attachments)
+        }
+
+        if let responseType {
+            payload["response_type"] = responseType.rawValue
         }
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
