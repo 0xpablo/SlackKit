@@ -52,7 +52,8 @@ public enum Endpoint: String {
     case filesCommentsEdit = "files.comments.edit"
     case filesDelete = "files.delete"
     case filesInfo = "files.info"
-    case filesUpload = "files.upload"
+    case filesGetUploadURLExternal = "files.getUploadURLExternal"
+    case filesCompleteUploadExternal = "files.completeUploadExternal"
     case groupsClose = "groups.close"
     case groupsHistory = "groups.history"
     case groupsInfo = "groups.info"
@@ -103,4 +104,7 @@ public enum Endpoint: String {
     case channelsList = "channels.list"
     case channelsMark = "channels.mark"
     case imOpen = "im.open"
+
+    @available(*, deprecated, message: "Use filesGetUploadURLExternal and filesCompleteUploadExternal instead")
+    case filesUpload = "files.upload"
 }

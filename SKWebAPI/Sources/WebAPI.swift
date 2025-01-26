@@ -466,29 +466,77 @@ extension WebAPI {
     }
 
     public func uploadFile(
-        file: Data,
+        data: Data,
         filename: String,
-        filetype: String = "auto",
         title: String? = nil,
+        altText: String? = nil,
+        snippetType: String? = nil,
         initialComment: String? = nil,
         channels: [String]? = nil,
-        ts: String? = nil,
+        threadTs: String? = nil,
         success: FileClosure?,
         failure: FailureClosure?
     ) {
+        // Step 1: Get upload URL
         let parameters: [String: Any?] = [
             "filename": filename,
-            "filetype": filetype,
-            "title": title,
-            "initial_comment": initialComment,
-            "channels": channels?.joined(separator: ","),
-            "thread_ts": ts
+            "length": data.count,
+            "alt_txt": altText,
+            "snippet_type": snippetType
         ]
-        networkInterface.uploadRequest(data: file, accessToken: token, parameters: parameters, successClosure: {(response) in
-            success?(File(file: response["file"] as? [String: Any]))
-        }) {(error) in
-            failure?(error)
-        }
+        
+        networkInterface.request(
+            .filesGetUploadURLExternal,
+            accessToken: token,
+            parameters: parameters,
+            successClosure: { [weak self] response in
+                guard let self = self,
+                      let uploadURL = FileUploadURL(dictionary: response) else {
+                    failure?(SlackError.clientJSONError)
+                    return
+                }
+                
+                // Step 2: Upload file to URL
+                self.networkInterface.uploadToURL(
+                    uploadURL.uploadURL,
+                    data: data,
+                    filename: filename,
+                    successClosure: {
+                        // Step 3: Complete upload
+                        var completeParameters: [String: Any] = [
+                            "files": [["id": uploadURL.fileID, "title": title].compactMapValues { $0 }]
+                        ]
+                        
+                        if let channels = channels {
+                            completeParameters["channels"] = channels.joined(separator: ",")
+                        }
+                        if let initialComment = initialComment {
+                            completeParameters["initial_comment"] = initialComment
+                        }
+                        if let threadTs = threadTs {
+                            completeParameters["thread_ts"] = threadTs
+                        }
+                        
+                        self.networkInterface.jsonRequest(
+                            .filesCompleteUploadExternal,
+                            accessToken: self.token,
+                            parameters: completeParameters,
+                            successClosure: { response in
+                                if let files = response["files"] as? [[String: Any]],
+                                   let firstFile = files.first {
+                                    success?(File(file: firstFile))
+                                } else {
+                                    failure?(SlackError.clientJSONError)
+                                }
+                            },
+                            errorClosure: failure ?? { _ in }
+                        )
+                    },
+                    errorClosure: failure ?? { _ in }
+                )
+            },
+            errorClosure: failure ?? { _ in }
+        )
     }
 }
 

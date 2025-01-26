@@ -122,33 +122,51 @@ public struct NetworkInterface {
         }.resume()
     }
 
-    internal func uploadRequest(
+    internal func uploadToURL(
+        _ url: String,
         data: Data,
-        accessToken: String,
-        parameters: [String: Any?],
-        successClosure: @escaping ([String: Any]) -> Void, errorClosure: @escaping (SlackError) -> Void
+        filename: String,
+        successClosure: @escaping () -> Void,
+        errorClosure: @escaping (SlackError) -> Void
     ) {
-        guard
-            let url = requestURL(for: .filesUpload, parameters: parameters),
-            let filename = parameters["filename"] as? String,
-            let filetype = parameters["filetype"] as? String
-        else {
+        guard let url = URL(string: url) else {
             errorClosure(SlackError.clientNetworkError)
             return
         }
-        var request = URLRequest(url:url)
-        request.httpMethod = "POST"
-        let boundaryConstant = randomBoundary()
-        let contentType = "multipart/form-data; boundary=" + boundaryConstant
-        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = requestBodyData(data: data, boundaryConstant: boundaryConstant, filename: filename, filetype: filetype)
 
-        session.dataTask(with: request) {(data, response, publicError) in
-            do {
-                successClosure(try NetworkInterface.handleResponse(data, response: response, publicError: publicError))
-            } catch let error {
-                errorClosure(error as? SlackError ?? SlackError.unknownError)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let boundary = randomBoundary()
+        request.setValue("multipart/form-data; boundary=\(boundary); charset=utf-8", forHTTPHeaderField: "Content-Type")
+
+        var bodyData = Data()
+
+        // Add file data
+        if let boundaryData = "--\(boundary)\r\n".data(using: .utf8),
+           let dispositionData = "Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8),
+           let contentTypeData = "Content-Type: application/octet-stream\r\n\r\n".data(using: .utf8),
+           let closingBoundaryData = "\r\n--\(boundary)--\r\n".data(using: .utf8) {
+
+            bodyData.append(boundaryData)
+            bodyData.append(dispositionData)
+            bodyData.append(contentTypeData)
+            bodyData.append(data)
+            bodyData.append(closingBoundaryData)
+        } else {
+            errorClosure(SlackError.clientNetworkError)
+            return
+        }
+
+        request.httpBody = bodyData
+
+        session.dataTask(with: request) { _, response, error in
+            if let error = error {
+                errorClosure(SlackError.clientNetworkError)
+            } else if (response as? HTTPURLResponse)?.statusCode != 200 {
+                errorClosure(SlackError.clientNetworkError)
+            } else {
+                successClosure()
             }
         }.resume()
     }
@@ -167,7 +185,7 @@ public struct NetworkInterface {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         
         do {
@@ -242,38 +260,8 @@ public struct NetworkInterface {
         return components?.url
     }
 
-    private func requestBodyData(data: Data, boundaryConstant: String, filename: String, filetype: String) -> Data? {
-        let boundaryStart = "--\(boundaryConstant)\r\n"
-        let boundaryEnd = "--\(boundaryConstant)--\r\n"
-        let contentDispositionString = "Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n"
-        let contentTypeString = "Content-Type: \(filetype)\r\n\r\n"
-        let dataEnd = "\r\n"
-
-        guard
-            let boundaryStartData = boundaryStart.data(using: .utf8),
-            let dispositionData = contentDispositionString.data(using: .utf8),
-            let contentTypeData = contentTypeString.data(using: .utf8),
-            let boundaryEndData = boundaryEnd.data(using: .utf8),
-            let dataEndData = dataEnd.data(using: .utf8)
-        else {
-            return nil
-        }
-
-        var requestBodyData = Data()
-        requestBodyData.append(contentsOf: boundaryStartData)
-        requestBodyData.append(contentsOf: dispositionData)
-        requestBodyData.append(contentsOf: contentTypeData)
-        requestBodyData.append(contentsOf: data)
-        requestBodyData.append(contentsOf: dataEndData)
-        requestBodyData.append(contentsOf: boundaryEndData)
-        return requestBodyData
-    }
-
     private func randomBoundary() -> String {
-        #if os(Linux)
-            return "slackkit.boundary.\(Int(random()))\(Int(random()))"
-        #else
-            return "slackkit.boundary.\(arc4random())\(arc4random())"
-        #endif
+        let uuid = UUID().uuidString
+        return "Slack-\(uuid)"
     }
 }
