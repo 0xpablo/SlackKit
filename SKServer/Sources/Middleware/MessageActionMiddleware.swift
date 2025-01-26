@@ -30,7 +30,7 @@ public struct MessageActionMiddleware: Middleware {
         self.routes = routes
     }
 
-    public func respond(to request: (RequestType, ResponseType)) async -> (RequestType, ResponseType) {
+    public func respond(to request: (RequestType, ResponseType)) async throws -> (RequestType, ResponseType) {
         if let form = request.0.formURLEncodedBody.first(where: {$0.name == "ssl_check"}), form.value == "1" {
             return (request.0, Response(200))
         }
@@ -41,6 +41,6 @@ public struct MessageActionMiddleware: Middleware {
         else {
             return (request.0, Response(400))
         }
-        return await middleware.respond(to: request)
+        return try await middleware.respond(to: request)
     }
 }

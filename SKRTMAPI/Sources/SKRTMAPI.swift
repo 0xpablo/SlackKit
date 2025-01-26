@@ -33,7 +33,7 @@ import SKWebAPI
 public protocol RTMWebSocket {
     init()
     var delegate: RTMDelegate? { get set }
-    func connect(url: URL)
+    func connect(url: URL) async
     func disconnect()
     func sendMessage(_ message: String) throws
 }
@@ -76,17 +76,13 @@ public final class SKRTMAPI: RTMDelegate {
         self.rtm.delegate = self
     }
 
-    public func connect() {
-        WebAPI.rtmConnect(
+    public func connect() async throws {
+        let response = try await WebAPI.rtmConnect(
             token: token,
             batchPresenceAware: options.batchPresenceAware,
-            presenceSub: options.presenceSub,
-            success: {(response) in
-                self.connectWithResponse(response)
-            }, failure: { (error) in
-                self.adapter?.connectionClosed(with: error, instance: self)
-            }
+            presenceSub: options.presenceSub
         )
+        try await connectWithResponse(response)
     }
 
     public func disconnect() {
@@ -117,14 +113,14 @@ public final class SKRTMAPI: RTMDelegate {
         }
     }
 
-    private func connectWithResponse(_ response: [String: Any]) {
+    private func connectWithResponse(_ response: [String: Any]) async throws {
         guard
             let socketURL = response["url"] as? String,
             let url = URL(string: socketURL)
         else {
-            return
+            throw SlackError.rtmConnectionError
         }
-        self.rtm.connect(url: url)
+        await rtm.connect(url: url)
         self.adapter?.initialSetup(json: response, instance: self)
     }
 
@@ -203,7 +199,13 @@ public final class SKRTMAPI: RTMDelegate {
     public func disconnected() {
         connected = false
         if options.reconnect {
-            connect()
+            Task {
+                do {
+                    try await connect()
+                } catch {
+                    self.adapter?.connectionClosed(with: error, instance: self)
+                }
+            }
         } else {
             adapter?.connectionClosed(with: SlackError.rtmConnectionError, instance: self)
         }
@@ -228,11 +230,23 @@ public final class SKRTMAPI: RTMDelegate {
         case .pong:
             pong = event.replyTo
         case .teamMigrationStarted:
-            connect()
+            Task {
+                do {
+                    try await connect()
+                } catch {
+                    self.adapter?.connectionClosed(with: error, instance: self)
+                }
+            }
         case .error:
             print("Error: \(anEvent)")
         case .goodbye:
-            connect()
+            Task {
+                do {
+                    try await connect()
+                } catch {
+                    self.adapter?.connectionClosed(with: error, instance: self)
+                }
+            }
         case .unknown:
             print("Unsupported event of type: \(anEvent["type"] ?? "No Type Information")")
         default:

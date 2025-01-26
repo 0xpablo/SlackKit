@@ -47,102 +47,65 @@ public struct NetworkInterface {
 
     internal func request(
         _ endpoint: Endpoint,
-        accessToken: String,
-        parameters: [String: Any?],
-        successClosure: @escaping ([String: Any]) -> Void,
-        errorClosure: @escaping (SlackError) -> Void
-    ) {
-        guard !accessToken.isEmpty else {
-            errorClosure(.invalidAuth)
-            return
+        accessToken: String? = nil,
+        parameters: [String: Any?]
+    ) async throws -> [String: Any] {
+        if let accessToken, accessToken.isEmpty {
+            throw SlackError.invalidAuth
         }
 
         guard let url = requestURL(for: endpoint, parameters: parameters) else {
-            errorClosure(SlackError.clientNetworkError)
-            return
+            throw SlackError.clientNetworkError
         }
 
         var request = URLRequest(url: url)
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-
-        session.dataTask(with: request) {(data, response, publicError) in
-            do {
-                successClosure(try NetworkInterface.handleResponse(data, response: response, publicError: publicError))
-            } catch let error {
-                errorClosure(error as? SlackError ?? SlackError.unknownError)
-            }
-        }.resume()
-    }
-
-    //Adapted from https://gist.github.com/erica/baa8a187a5b4796dab27
-    internal func synchronusRequest(_ endpoint: Endpoint, parameters: [String: Any?]) -> [String: Any]? {
-        guard let url = requestURL(for: endpoint, parameters: parameters) else {
-            return nil
+        if let accessToken {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
-        let request = URLRequest(url: url)
-        var data: Data? = nil
-        var response: URLResponse? = nil
-        var error: Error? = nil
-        let semaphore = DispatchSemaphore(value: 0)
-        session.dataTask(with: request) { (reqData, reqResponse, reqError) in
-            data = reqData
-            response = reqResponse
-            error = reqError
-            if data == nil, let error = error { print(error) }
-            semaphore.signal()
-        }.resume()
-        _ = semaphore.wait(timeout: DispatchTime.distantFuture)
-        return try? NetworkInterface.handleResponse(data, response: response, publicError: error)
+
+        let (data, response) = try await session.data(for: request)
+
+        return try NetworkInterface.handleResponse(data, response: response, publicError: nil)
     }
 
     internal func customRequest(
         _ url: String,
         token: String,
-        data: Data,
-        success: @escaping (Bool) -> Void,
-        errorClosure: @escaping (SlackError) -> Void
-    ) {
+        data: Data
+    ) async throws -> Bool {
         guard let string = url.removingPercentEncoding, let url =  URL(string: string) else {
-            errorClosure(SlackError.clientNetworkError)
-            return
+            throw SlackError.clientNetworkError
         }
-        var request = URLRequest(url:url)
+
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         let contentType = "application/json; charset: utf-8"
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = data
 
-        session.dataTask(with: request) {(data, response, publicError) in
-            if publicError == nil {
-                success(true)
-            } else {
-                errorClosure(SlackError.clientNetworkError)
-            }
-        }.resume()
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw SlackError.clientNetworkError
+        }
+        return true
     }
 
     internal func uploadToURL(
         _ url: String,
         data: Data,
-        filename: String,
-        successClosure: @escaping () -> Void,
-        errorClosure: @escaping (SlackError) -> Void
-    ) {
+        filename: String
+    ) async throws {
         guard let url = URL(string: url) else {
-            errorClosure(SlackError.clientNetworkError)
-            return
+            throw SlackError.clientNetworkError
         }
-
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-
         let boundary = randomBoundary()
         request.setValue("multipart/form-data; boundary=\(boundary); charset=utf-8", forHTTPHeaderField: "Content-Type")
 
+        // Build the body
         var bodyData = Data()
-
-        // Add file data
         if let boundaryData = "--\(boundary)\r\n".data(using: .utf8),
            let dispositionData = "Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8),
            let contentTypeData = "Content-Type: application/octet-stream\r\n\r\n".data(using: .utf8),
@@ -154,54 +117,34 @@ public struct NetworkInterface {
             bodyData.append(data)
             bodyData.append(closingBoundaryData)
         } else {
-            errorClosure(SlackError.clientNetworkError)
-            return
+            throw SlackError.clientNetworkError
         }
-
         request.httpBody = bodyData
 
-        session.dataTask(with: request) { _, response, error in
-            if let error = error {
-                errorClosure(SlackError.clientNetworkError)
-            } else if (response as? HTTPURLResponse)?.statusCode != 200 {
-                errorClosure(SlackError.clientNetworkError)
-            } else {
-                successClosure()
-            }
-        }.resume()
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw SlackError.clientNetworkError
+        }
     }
 
     internal func jsonRequest(
         _ endpoint: Endpoint,
         accessToken: String,
-        parameters: [String: Any],
-        successClosure: @escaping ([String: Any]) -> Void,
-        errorClosure: @escaping (SlackError) -> Void
-    ) {
+        parameters: [String: Any]
+    ) async throws -> [String: Any] {
         guard let url = URL(string: "\(apiUrl)\(endpoint.rawValue)") else {
-            errorClosure(SlackError.clientNetworkError)
-            return
+            throw SlackError.clientNetworkError
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: parameters, options: [])
-        } catch {
-            errorClosure(SlackError.clientJSONError)
-            return
-        }
 
-        session.dataTask(with: request) {(data, response, publicError) in
-            do {
-                successClosure(try NetworkInterface.handleResponse(data, response: response, publicError: publicError))
-            } catch let error {
-                errorClosure(error as? SlackError ?? SlackError.unknownError)
-            }
-        }.resume()
+        request.httpBody = try JSONSerialization.data(withJSONObject: parameters, options: [])
+
+        let (data, response) = try await session.data(for: request)
+        return try NetworkInterface.handleResponse(data, response: response, publicError: nil)
     }
 
     internal static func handleResponse(_ data: Data?, response: URLResponse?, publicError: Error?) throws -> [String: Any] {
