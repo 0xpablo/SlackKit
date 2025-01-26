@@ -183,7 +183,7 @@ extension WebAPI {
 extension WebAPI {
     public func deleteMessage(channel: String, ts: String, success: SuccessClosure?, failure: FailureClosure?) {
         let parameters: [String: Any] = ["channel": channel, "ts": ts]
-        networkInterface.request(.chatDelete, accessToken: token, parameters: parameters, successClosure: { _ in
+        networkInterface.jsonRequest(.chatDelete, accessToken: token, parameters: parameters, successClosure: { _ in
             success?(true)
         }) {(error) in
             failure?(error)
@@ -206,21 +206,27 @@ extension WebAPI {
         success: (((ts: String?, channel: String?)) -> Void)?,
         failure: FailureClosure?
     ) {
-        let parameters: [String: Any?] = [
+        var parameters: [String: Any] = [
             "channel": channel,
-            "text": text,
-            "as_user": asUser,
-            "parse": parse?.rawValue,
-            "link_names": linkNames,
-            "unfurl_links": unfurlLinks,
-            "unfurl_media": unfurlMedia,
-            "username": username,
-            "icon_url": iconURL,
-            "icon_emoji": iconEmoji,
-            "attachments": encodeAttachments(attachments),
-            "blocks": encodeBlocks(blocks)
+            "text": text
         ]
-        networkInterface.request(.chatPostMessage, accessToken: token, parameters: parameters, successClosure: {(response) in
+        
+        if let asUser = asUser { parameters["as_user"] = asUser }
+        if let parse = parse { parameters["parse"] = parse.rawValue }
+        if let linkNames = linkNames { parameters["link_names"] = linkNames }
+        if let unfurlLinks = unfurlLinks { parameters["unfurl_links"] = unfurlLinks }
+        if let unfurlMedia = unfurlMedia { parameters["unfurl_media"] = unfurlMedia }
+        if let username = username { parameters["username"] = username }
+        if let iconURL = iconURL { parameters["icon_url"] = iconURL }
+        if let iconEmoji = iconEmoji { parameters["icon_emoji"] = iconEmoji }
+        if let attachments = attachments?.compactMap({ $0 }) {
+            parameters["attachments"] = attachments.map { $0.dictionary }
+        }
+        if let blocks = blocks {
+            parameters["blocks"] = blocks.map { $0.dictionary }
+        }
+
+        networkInterface.jsonRequest(.chatPostMessage, accessToken: token, parameters: parameters, successClosure: {(response) in
             success?((ts: response["ts"] as? String, response["channel"] as? String))
         }) {(error) in
             failure?(error)
@@ -244,22 +250,26 @@ extension WebAPI {
         success: (((ts: String?, channel: String?)) -> Void)?,
         failure: FailureClosure?
     ) {
-        let parameters: [String: Any?] = [
+        var parameters: [String: Any] = [
             "channel": channel,
             "thread_ts": thread,
             "text": text,
-            "reply_broadcast": broadcastReply,
-            "as_user": asUser,
-            "parse": parse?.rawValue,
-            "link_names": linkNames,
-            "unfurl_links": unfurlLinks,
-            "unfurl_media": unfurlMedia,
-            "username": username,
-            "icon_url": iconURL,
-            "icon_emoji": iconEmoji,
-            "attachments": encodeAttachments(attachments)
+            "reply_broadcast": broadcastReply
         ]
-        networkInterface.request(.chatPostMessage, accessToken: token, parameters: parameters, successClosure: {(response) in
+        
+        if let asUser = asUser { parameters["as_user"] = asUser }
+        if let parse = parse { parameters["parse"] = parse.rawValue }
+        if let linkNames = linkNames { parameters["link_names"] = linkNames }
+        if let unfurlLinks = unfurlLinks { parameters["unfurl_links"] = unfurlLinks }
+        if let unfurlMedia = unfurlMedia { parameters["unfurl_media"] = unfurlMedia }
+        if let username = username { parameters["username"] = username }
+        if let iconURL = iconURL { parameters["icon_url"] = iconURL }
+        if let iconEmoji = iconEmoji { parameters["icon_emoji"] = iconEmoji }
+        if let attachments = attachments?.compactMap({ $0 }) {
+            parameters["attachments"] = attachments.map { $0.dictionary }
+        }
+
+        networkInterface.jsonRequest(.chatPostMessage, accessToken: token, parameters: parameters, successClosure: {(response) in
             success?((ts: response["ts"] as? String, response["channel"] as? String))
         }) {(error) in
             failure?(error)
@@ -321,15 +331,19 @@ extension WebAPI {
         success: SuccessClosure?,
         failure: FailureClosure?
     ) {
-        let parameters: [String: Any?] = [
+        var parameters: [String: Any] = [
             "channel": channel,
             "ts": ts,
             "text": message,
             "parse": parse.rawValue,
-            "link_names": linkNames,
-            "attachments": encodeAttachments(attachments)
+            "link_names": linkNames
         ]
-        networkInterface.request(.chatUpdate, accessToken: token, parameters: parameters, successClosure: { _ in
+        
+        if let attachments = attachments?.compactMap({ $0 }) {
+            parameters["attachments"] = attachments.map { $0.dictionary }
+        }
+
+        networkInterface.jsonRequest(.chatUpdate, accessToken: token, parameters: parameters, successClosure: { _ in
             success?(true)
         }) {(error) in
             failure?(error)
@@ -1447,9 +1461,9 @@ extension WebAPI {
         return nil
     }
 
-    fileprivate func encodeBlocks(_ blocks: [Block]?) -> String? {
+    fileprivate func encodeBlocks(_ blocks: [Block?]?) -> String? {
         if let blocks = blocks {
-            let blocksArray: [[String: Any]] = blocks.map { $0.dictionary }
+            let blocksArray: [[String: Any]] = blocks.map { $0?.dictionary ?? [:] }
             do {
                 let data = try JSONSerialization.data(withJSONObject: blocksArray, options: [])
                 return String(data: data, encoding: String.Encoding.utf8)

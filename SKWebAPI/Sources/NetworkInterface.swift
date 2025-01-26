@@ -153,6 +153,39 @@ public struct NetworkInterface {
         }.resume()
     }
 
+    internal func jsonRequest(
+        _ endpoint: Endpoint,
+        accessToken: String,
+        parameters: [String: Any],
+        successClosure: @escaping ([String: Any]) -> Void,
+        errorClosure: @escaping (SlackError) -> Void
+    ) {
+        guard let url = URL(string: "\(apiUrl)\(endpoint.rawValue)") else {
+            errorClosure(SlackError.clientNetworkError)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: parameters, options: [])
+        } catch {
+            errorClosure(SlackError.clientJSONError)
+            return
+        }
+
+        session.dataTask(with: request) {(data, response, publicError) in
+            do {
+                successClosure(try NetworkInterface.handleResponse(data, response: response, publicError: publicError))
+            } catch let error {
+                errorClosure(error as? SlackError ?? SlackError.unknownError)
+            }
+        }.resume()
+    }
+
     internal static func handleResponse(_ data: Data?, response: URLResponse?, publicError: Error?) throws -> [String: Any] {
         guard let data = data, let response = response as? HTTPURLResponse else {
             throw SlackError.clientNetworkError
