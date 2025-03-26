@@ -63,7 +63,7 @@ public final class SlackKit: RTMAdapter {
         client: Client? = Client(),
         options: RTMOptions = RTMOptions(),
         rtm: RTMWebSocket? = nil
-    ) {
+    ) async throws {
         let rtm = SKRTMAPI(withAPIToken: token, options: options, rtm: rtm)
         rtm.adapter = self
 
@@ -72,7 +72,7 @@ public final class SlackKit: RTMAdapter {
         } else {
             clients[token] = ClientConnection(client: client, rtm: rtm, webAPI: nil)
         }
-        clients[token]?.rtm?.connect()
+        try await clients[token]?.rtm?.connect()
     }
 
     public func addServer(_ server: SlackKitServer? = nil, responder: SlackKitResponder? = nil, oauth: OAuthConfig? = nil) {
@@ -92,7 +92,7 @@ public final class SlackKit: RTMAdapter {
             }
             // Bot User
             if let token = authorization.bot?.botToken {
-                self.addRTMBotWithAPIToken(token)
+                try await self.addRTMBotWithAPIToken(token)
             }
         }
         return RequestRoute(path: "/oauth", middleware: oauth)

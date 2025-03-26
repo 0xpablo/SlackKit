@@ -22,6 +22,7 @@
 // THE SOFTWARE.
 
 import Foundation
+import Hummingbird
 
 public struct ResponseMiddleware: Middleware {
     let token: String
@@ -43,7 +44,8 @@ public struct ResponseMiddleware: Middleware {
         let token: String
 
         init?(request: RequestType) {
-            if let webhook = WebhookRequest(request: request), let token = webhook.token {
+            let urlFormDecoder = URLEncodedFormDecoder()
+            if let webhook = try? urlFormDecoder.decode(WebhookRequest.self, from: request.body!), let token = webhook.token {
                 self.token = token
             } else if let action = MessageActionRequest(request: request), let token = action.token {
                 self.token = token
@@ -51,22 +53,6 @@ public struct ResponseMiddleware: Middleware {
                 return nil
             }
         }
-    }
-}
-
-extension WebhookRequest {
-    public init?(request: RequestType) {
-        guard
-            let proto = request.headers.first(where: {$0.name.lowercased() == "x-forwarded-proto"})?.value,
-            let host = request.headers.first(where: {$0.name.lowercased() == "host"})?.value
-        else {
-            return nil
-        }
-        let requestString = proto + host + request.path + "?" + request.body!
-        let components = URLComponents(string: requestString)
-        var dict = [String: Any]()
-        _ = components?.queryItems.flatMap {$0.map({dict[$0.name]=$0.value})}
-        self.init(request: dict)
     }
 }
 

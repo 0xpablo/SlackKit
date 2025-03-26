@@ -37,10 +37,15 @@ let package = Package(
                     .product(name: "WebSocketKit", package: "websocket-kit", condition: .when(platforms: [.macOS, .linux])),
                 ],
                 path: "SKRTMAPI/Sources"),
-        .target(name: "SKServer",
-                dependencies: ["SKCore", "SKWebAPI",
-                    .product(name: "Hummingbird", package: "hummingbird")],
-                path: "SKServer/Sources"),
+        .target(
+            name: "SKServer",
+            dependencies: [
+                "SKCore",
+                "SKWebAPI",
+                .product(name: "Hummingbird", package: "hummingbird")
+            ],
+            path: "SKServer/Sources"
+        ),
         .target(name: "SKWebAPI",
                 dependencies: ["SKCore"],
                 path: "SKWebAPI/Sources"),
