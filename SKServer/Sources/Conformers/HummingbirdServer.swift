@@ -1,6 +1,7 @@
 import Foundation
 import Hummingbird
 import HummingbirdCore
+import NIOFoundationCompat
 
 class HummingbirdServer: SlackKitServer {
     let server: Application<RouterResponder<BasicRequestContext>>
